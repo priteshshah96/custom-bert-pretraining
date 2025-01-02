@@ -1,0 +1,17 @@
+# Python
+*.pyc
+__pycache__/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Logs
+logs/
+checkpoints/
+
+# Models
+models/
+
+# Tokenized and preprocessed data
+data/tokenized/
+data/preprocessed/
