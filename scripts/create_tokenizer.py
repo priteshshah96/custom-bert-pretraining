@@ -1,5 +1,6 @@
 from datasets import load_from_disk
 from tokenizers import BertWordPieceTokenizer
+from transformers import BertTokenizerFast
 import os
 
 # Define paths
@@ -12,7 +13,7 @@ os.makedirs(TOKENIZER_DIR, exist_ok=True)
 
 def train_tokenizer(data_dir, save_dir, vocab_size=30522):
     """
-    Trains a WordPiece tokenizer on the given dataset.
+    Trains a WordPiece tokenizer on the given dataset and saves it.
 
     Args:
         data_dir (str): Directory containing training data.
@@ -25,8 +26,8 @@ def train_tokenizer(data_dir, save_dir, vocab_size=30522):
     # Prepare training data for the tokenizer
     texts = [example["text"] for example in dataset]
 
-    # Train the tokenizer
-    print(f"Training tokenizer with vocab size {vocab_size}...")
+    # Train the WordPiece tokenizer
+    print(f"Training WordPiece tokenizer with vocab size {vocab_size}...")
     tokenizer = BertWordPieceTokenizer()
     tokenizer.train_from_iterator(
         texts, 
@@ -35,9 +36,17 @@ def train_tokenizer(data_dir, save_dir, vocab_size=30522):
         special_tokens=["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]"]
     )
     
-    # Save the tokenizer
-    print(f"Saving tokenizer to {save_dir}...")
+    # Save the tokenizer as a WordPiece tokenizer
+    print(f"Saving WordPiece tokenizer to {save_dir}...")
     tokenizer.save_model(save_dir)
+    
+    # Create a Hugging Face-compatible tokenizer
+    print("Creating Hugging Face-compatible tokenizer...")
+    hf_tokenizer = BertTokenizerFast.from_pretrained(save_dir)
+    
+    # Save Hugging Face-compatible tokenizer files
+    hf_tokenizer.save_pretrained(save_dir)
+    print(f"Hugging Face-compatible tokenizer saved to {save_dir}")
 
 if __name__ == "__main__":
     train_tokenizer(TRAIN_SPLIT_DIR, TOKENIZER_DIR)

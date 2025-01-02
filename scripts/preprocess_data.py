@@ -1,62 +1,47 @@
 import os
-from datasets import Dataset
-from transformers import AutoTokenizer
+from datasets import load_from_disk, DatasetDict
+from transformers import PreTrainedTokenizerFast
 
-# Directories
-RAW_DATA_DIR = "data/raw"
-TOKENIZED_DATA_DIR = "data/tokenized"
-PREPROCESSED_DATA_DIR = "data/preprocessed"
-TOKENIZER_PATH = "models/tokenizer"
+# Define paths
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+TRAIN_SPLIT_DIR = os.path.join(PROJECT_ROOT, "../data/split/train")
+TEST_SPLIT_DIR = os.path.join(PROJECT_ROOT, "../data/split/test")
+TOKENIZER_DIR = os.path.join(PROJECT_ROOT, "../models/tokenizer")
+TOKENIZED_DIR = os.path.join(PROJECT_ROOT, "../data/tokenized")
 
-# Checking if directories exist
-TOKENIZED_DATA_DIR = "data/tokenized"
-os.makedirs(TOKENIZED_DATA_DIR, exist_ok=True)
-os.makedirs(PREPROCESSED_DATA_DIR, exist_ok=True)
+# Ensure output directory exists
+os.makedirs(TOKENIZED_DIR, exist_ok=True)
 
-def read_files(directory):
+def tokenize_and_save(data_dir, tokenizer_dir, output_dir):
+    """
+    Tokenizes a dataset split and saves it.
 
-    data =  []
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-        if filename.endswirh(".txt"):
-            with open(file_path, "r", encoding="utf-8") as file:
-                content = file.read()
-                data.append({"text": content})
-    return data
-
-def tokenize_data(raw_data, tokenizer):
-
-    def tokenizer_function(examples):
-        return tokenizer(examples["text"], truncation = True, padding ="max_length", max_length = 512)
+    Args:
+        data_dir (str): Path to the dataset split directory.
+        tokenizer_dir (str): Path to the directory containing the trained tokenizer.
+        output_dir (str): Directory to save the tokenized dataset.
+    """
+    print(f"Loading dataset from {data_dir}...")
+    dataset = load_from_disk(data_dir)
     
-    dataset = Dataset.from_list(raw_data)
-    tokenized_dataset = dataset.map(tokenizer_function, batched=True)
-    return tokenized_dataset
+    print(f"Loading tokenizer from {tokenizer_dir}...")
+    tokenizer = PreTrainedTokenizerFast.from_pretrained(tokenizer_dir)
 
+    def tokenize_function(examples):
+        return tokenizer(
+            examples["text"], truncation=True, padding="max_length", max_length=512
+        )
+    
+    print(f"Tokenizing dataset...")
+    tokenized_dataset = dataset.map(tokenize_function, batched=True, num_proc=4)
 
-def preprocess():
-
-    print(" Reading raw data file .......")
-    raw_data = read_files(RAW_DATA_DIR)
-
-    print(f"Loaded {len(raw_data)} files from {RAW_DATA_DIR}")
-
-    print("Loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-
-    print("Tokenizing data...")
-    tokenized_dataset = tokenize_data(raw_data, tokenizer)
-
-    print("Saving tokenized data...")
-    tokenized_output_path = os.path.join(TOKENIZED_DATA_DIR, "tokenized.arrow")
-    tokenized_dataset.save_to_disk(tokenized_output_path)
-    print(f"Tokenized data saved to {tokenized_output_path}")
-
-    print("Saving preprocessed data as text...")
-    preprocessed_output_path = os.path.join(PREPROCESSED_DATA_DIR, "preprocessed.jsonl")
-    tokenized_dataset.to_json(preprocessed_output_path)
-    print(f"Preprocessed data saved to {preprocessed_output_path}")
-    print("Preprocessing complete!")
+    # Save the tokenized dataset
+    split_name = os.path.basename(data_dir)
+    output_path = os.path.join(output_dir, split_name)
+    print(f"Saving tokenized dataset to {output_path}...")
+    tokenized_dataset.save_to_disk(output_path)
 
 if __name__ == "__main__":
-    preprocess()
+    # Tokenize train and test splits
+    tokenize_and_save(TRAIN_SPLIT_DIR, TOKENIZER_DIR, TOKENIZED_DIR)
+    tokenize_and_save(TEST_SPLIT_DIR, TOKENIZER_DIR, TOKENIZED_DIR)
